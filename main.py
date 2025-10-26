@@ -18,9 +18,9 @@ def plot_song(audio, filename, sr):
     plt.xlim(0, max(time_axis))
 
     # Create frequency axis for plotting
-    fft_vals = np.abs(np.fft.fft(audio))
+    fft_vals = np.abs(np.fft.rfft(audio))
     # 1/sr is the time between samples
-    freq_axis = np.fft.fftfreq(len(audio), 1/sr)
+    freq_axis = np.fft.rfftfreq(len(audio), 1/sr)
 
     plt.subplot(2, 1, 2)
     # Plot frequency plot
