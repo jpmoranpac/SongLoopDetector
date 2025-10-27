@@ -87,13 +87,7 @@ def compare_sections(audio1, audio2, filename, sr):
 def cosine_similarity(a, b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9)
 
-def main():
-    if len(sys.argv) != 2:
-        print("Please provide a .mp3 file as the first argument")
-        return
-
-    filename = sys.argv[1]
-
+def load_audio(filename):
     print(f"Loading audio file: {filename}")
     try:
         # Load the audio file in mono, preserving the original sample rate
@@ -106,8 +100,12 @@ def main():
     print(f"Sample rate: {sr} Hz")
     print(f"Duration: {duration:.2f} seconds")
 
-    window_size = int(1.0 * sr)
-    hop_size = int(0.5 * sr)
+    return audio, sr
+
+def fft_matching(audio, sr, similarity, window_sec, hop_sec, percentage_skip):
+    duration = len(audio) / sr
+    window_size = int(window_sec * sr)
+    hop_size = int(hop_sec * sr)
     windows = []
     for start in range(0, len(audio) - window_size, hop_size):
         segment = audio[start:start + window_size]
@@ -115,9 +113,21 @@ def main():
         windows.append((start, fft))
     
     for i1, w1 in enumerate(windows):
-        for w2 in windows[i1:]:
-            if cosine_similarity(w1[1], w2[1]) > 0.99 and w1[0] != w2[0]:
+        for w2 in windows[i1 + int(len(audio)*percentage_skip):]:
+            if cosine_similarity(w1[1], w2[1]) > similarity and w1[0] != w2[0]:
                 print(f"Match {w1[0]/sr} with {w2[0]/sr}!")
+
+def main():
+    if len(sys.argv) != 2:
+        print("Please provide a .mp3 file as the first argument")
+        return
+
+    filename = sys.argv[1]
+
+    audio, sr = load_audio(filename)
+
+    fft_matching(audio, sr, 0.99, 1.0, 0.5, 0.0)
+
 
 if __name__ == "__main__":
     main()
