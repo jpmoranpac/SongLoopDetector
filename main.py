@@ -117,6 +117,34 @@ def fft_matching(audio, sr, similarity, window_sec, hop_sec, percentage_skip):
             if cosine_similarity(w1[1], w2[1]) > similarity and w1[0] != w2[0]:
                 print(f"Match {w1[0]/sr} with {w2[0]/sr}!")
 
+def sliding_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop_size=1):
+    # This method often returns quite a poor correlation, even for loops that
+    # are obvious to the human ear. Really good for mechanical loops, but 
+    # natural ones get correlation scores below 0.5. Could this be beacuse of 
+    # phase shifts?
+
+    window_size = int(window_duration * sr)
+    offset_samples = int(offset * sr)
+    ref = audio[offset_samples:offset_samples+window_size]  # reference window
+
+    correlation_scores = []
+    lag_times = []
+    segments_to_check = int((len(audio) - window_size)/hop_size)
+    print(f"Checking {segments_to_check} segments")
+
+    for lag in range(window_size + offset_samples, len(audio) - window_size, hop_size):
+        segment = audio[lag:lag + window_size]
+
+        # Compute normalized dot product (cosine similarity)
+        score = cosine_similarity(ref, segment)
+        correlation_scores.append(score)
+        lag_times.append(lag / sr)  # store in seconds
+
+        if lag % 10000 == 0:
+            print(f"{(lag)/len(audio)*100:.2f}%")
+
+    return np.array(lag_times), np.array(correlation_scores)
+
 def main():
     if len(sys.argv) != 2:
         print("Please provide a .mp3 file as the first argument")
@@ -126,7 +154,27 @@ def main():
 
     audio, sr = load_audio(filename)
 
-    fft_matching(audio, sr, 0.99, 1.0, 0.5, 0.0)
+    #fft_matching(audio, sr, 0.99, 1.0, 0.5, 0.0)
+
+
+    # Run sliding cross-correlation
+    lags, scores = sliding_cross_correlation(audio, sr, offset=5.0, window_duration=5.0, hop_size=1)
+
+    # Find best loop point
+    best_idx = np.argmax(scores)
+    best_time = lags[best_idx]
+    best_score = scores[best_idx]
+
+    print(f"Best loop point at: {best_time:.2f} seconds (similarity = {best_score:.4f})")
+
+    # Plot the correlation scores
+    plt.figure(figsize=(10, 4))
+    plt.plot(lags, scores)
+    plt.title("Cross-Correlation vs Time Offset")
+    plt.xlabel("Time Offset (seconds)")
+    plt.ylabel("Similarity Score")
+    plt.grid(True)
+    plt.show()
 
 
 if __name__ == "__main__":
