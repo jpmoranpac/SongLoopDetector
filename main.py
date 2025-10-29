@@ -1,3 +1,14 @@
+# Steps:
+# [x] Use FFT to find best matching loop for a given section
+# [ ] Slide the window out to find the longest period of matching samples (with
+#     a criteria of 0.98 match?)
+# [ ] Repeat this for all sections of x seconds in the song
+# [ ] Plot the sections of songs that appear to be repeats
+# [ ] Export a new .mp3 file that stitches the matching sections together
+# [ ] Interactive GUI for the user to confirm repeats (e.g. click on a proposed
+#     repeat and let the user hear the proposed stitch for seamlessness)
+
+
 import sys
 import librosa
 import matplotlib.pyplot as plt
