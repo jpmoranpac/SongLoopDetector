@@ -156,7 +156,7 @@ def frequency_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop
     scores = []
     times = []
 
-    for lag in range(offset_samples+window_size, len(audio) - offset_samples-window_size, hop_size):
+    for lag in range(offset_samples+window_size, len(audio) - window_size, hop_size):
         segment = audio[lag:lag + window_size]
         seg_mag = np.abs(librosa.stft(segment, n_fft=2048, hop_length=512)).mean(axis=1)
         seg_mag /= np.linalg.norm(seg_mag) + 1e-8
@@ -183,7 +183,7 @@ def main():
 
 
     # Run sliding cross-correlation
-    lags, scores = frequency_cross_correlation(audio, sr, offset=10.0, window_duration=10.0, hop_size=10000)
+    lags, scores = frequency_cross_correlation(audio, sr, offset=10.0, window_duration=1.0, hop_size=10000)
 
     # Find best loop point
     best_idx = np.argmax(scores)
