@@ -8,7 +8,6 @@
 # [ ] Interactive GUI for the user to confirm repeats (e.g. click on a proposed
 #     repeat and let the user hear the proposed stitch for seamlessness)
 
-
 import sys
 import librosa
 import matplotlib.pyplot as plt
@@ -182,25 +181,20 @@ def frequency_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop
     return np.array(times), np.array(scores)
 
 def main():
+    # Load file
     if len(sys.argv) != 2:
         print("Please provide a .mp3 file as the first argument")
         return
-
     filename = sys.argv[1]
-
     audio, sr = load_audio(filename)
 
-    #fft_matching(audio, sr, 0.99, 1.0, 0.5, 0.0)
-
-
-    # Run sliding cross-correlation
+    # Calculate similarity
     lags, scores = frequency_cross_correlation(audio, sr, offset=10.0, window_duration=1.0, hop_size=10000)
 
     # Find best loop point
     best_idx = np.argmax(scores)
     best_time = lags[best_idx]
     best_score = scores[best_idx]
-
     print(f"Best loop point at: {best_time:.2f} seconds (similarity = {best_score:.4f})")
 
     # Plot the correlation scores
