@@ -8,6 +8,11 @@
 # [ ] Interactive GUI for the user to confirm repeats (e.g. click on a proposed
 #     repeat and let the user hear the proposed stitch for seamlessness)
 
+# Issues:
+# [x] As the window duration increases, the average correlation increases
+#     Makes sense, as the whole song is similar to itself. Should I
+#     instead look for number of sequential matching short windows?
+
 import sys
 import librosa
 import matplotlib.pyplot as plt
@@ -157,6 +162,7 @@ def sliding_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop_s
 
 def calculate_similarity(ref, segment):
     ref_mag = np.abs(librosa.stft(ref, n_fft=2048, hop_length=512)).mean(axis=1)
+    ref_mag /= np.linalg.norm(ref_mag)
     seg_mag = np.abs(librosa.stft(segment, n_fft=2048, hop_length=512)).mean(axis=1)
     seg_mag /= np.linalg.norm(seg_mag) + 1e-8
 
@@ -199,6 +205,22 @@ def plot_similarity_scores(lags, scores):
     plt.grid(True)
     plt.show()
 
+def find_consecutive_matching_samples(audio, reference_start_sample, match_start_sample, window_size, similarity_threshold):
+    similarity = 1.0
+    consecutive_matches = 0
+    while similarity > similarity_threshold:
+        # Check if the next window is also of high similarity
+        consecutive_matches += 1
+        ref_start = reference_start_sample + window_size * consecutive_matches
+        ref_end = ref_start + window_size
+        sample_start = match_start_sample + window_size * consecutive_matches
+        sample_end = sample_start + window_size
+        ref = audio[ref_start : ref_end]
+        sample = audio[sample_start : sample_end]
+        similarity = calculate_similarity(ref, sample)
+        
+    return consecutive_matches
+
 def main():
     # Load file
     if len(sys.argv) != 2:
@@ -208,7 +230,7 @@ def main():
     audio, sr = load_audio(filename)
 
     # Calculate similarity
-    window_duration = 2.0
+    window_duration = 0.5
     window_size = int(window_duration * sr)
     offset = 10.0
     offset_size = int(offset * sr)
@@ -219,32 +241,14 @@ def main():
     # Find points where similarity is high
     for idx, score in enumerate(scores):
         if score > similarity_threshold:
-            # Check if the next window is also of high similarity
-            print(f"Found start at {offset_size} - {offset_size + window_size} with {lags[idx]} - {lags[idx] + window_size}")
-            ref_start = offset_size + window_size
-            ref_end = ref_start + window_size
-            sample_start = lags[idx] + window_size
-            sample_end = sample_start + window_size
-            ref = audio[ref_start : ref_end]
-            sample = audio[sample_start : sample_end]
-            similarity = calculate_similarity(ref, sample)
-            if (similarity > similarity_threshold):
-                print(f"Found similarity at {ref_start} - {ref_end} with {sample_start} - {sample_end}")
-
-
-    print(f"Found {sum(scores>0.99)} scores > 0.99")
-
-    # Extend the window duration until the widest match is found - binary style
-    # Issue: As the window duration increases, the average correlation increases
-    #        Makes sense, as the whole song is similar to itself. Should I
-    #        instead look for number of sequential matching short windows?
-
+            consecutive_matches = find_consecutive_matching_samples(audio, offset_size, lags[idx], window_size, similarity_threshold)
+            print(f"For reference at {offset} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr}")
 
     best_idx = np.argmax(scores)
     best_time = lags[best_idx] / sr
     best_score = scores[best_idx]
     print(f"Best loop point at: {best_time:.2f} seconds (similarity = {best_score:.4f})")
-    plot_similarity_scores(lags, scores)
+    plot_similarity_scores(lags / sr, scores)
 
 if __name__ == "__main__":
     main()
