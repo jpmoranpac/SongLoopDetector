@@ -155,6 +155,15 @@ def sliding_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop_s
 
     return np.array(lag_times), np.array(correlation_scores)
 
+def calculate_similarity(ref, segment):
+    ref_mag = np.abs(librosa.stft(ref, n_fft=2048, hop_length=512)).mean(axis=1)
+    seg_mag = np.abs(librosa.stft(segment, n_fft=2048, hop_length=512)).mean(axis=1)
+    seg_mag /= np.linalg.norm(seg_mag) + 1e-8
+
+    score = np.dot(ref_mag, seg_mag)
+
+    return score
+
 def frequency_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop_size=1):
     window_size = int(window_duration * sr)
     offset_samples = int(offset * sr)
@@ -164,7 +173,7 @@ def frequency_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop
     ref_mag /= np.linalg.norm(ref_mag)
     
     scores = []
-    times = []
+    lags = []
 
     for lag in range(offset_samples+window_size, len(audio) - window_size, hop_size):
         segment = audio[lag:lag + window_size]
@@ -173,12 +182,22 @@ def frequency_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop
 
         score = np.dot(ref_mag, seg_mag)
         scores.append(score)
-        times.append(lag / sr)
+        lags.append(lag)
 
         if lag % 10000 == 0:
             print(f"{(lag)/len(audio)*100:.2f}%")
             
-    return np.array(times), np.array(scores)
+    return np.array(lags), np.array(scores)
+
+def plot_similarity_scores(lags, scores):
+    # Plot the correlation scores
+    plt.figure(figsize=(10, 4))
+    plt.plot(lags, scores)
+    plt.title("Cross-Correlation vs Time Offset")
+    plt.xlabel("Time Offset (seconds)")
+    plt.ylabel("Similarity Score")
+    plt.grid(True)
+    plt.show()
 
 def main():
     # Load file
@@ -189,23 +208,43 @@ def main():
     audio, sr = load_audio(filename)
 
     # Calculate similarity
-    lags, scores = frequency_cross_correlation(audio, sr, offset=10.0, window_duration=1.0, hop_size=10000)
+    window_duration = 2.0
+    window_size = int(window_duration * sr)
+    offset = 10.0
+    offset_size = int(offset * sr)
+    lags, scores = frequency_cross_correlation(audio, sr, offset=offset, window_duration = window_duration, hop_size=10000)
 
-    # Find best loop point
+    similarity_threshold = 0.99
+
+    # Find points where similarity is high
+    for idx, score in enumerate(scores):
+        if score > similarity_threshold:
+            # Check if the next window is also of high similarity
+            print(f"Found start at {offset_size} - {offset_size + window_size} with {lags[idx]} - {lags[idx] + window_size}")
+            ref_start = offset_size + window_size
+            ref_end = ref_start + window_size
+            sample_start = lags[idx] + window_size
+            sample_end = sample_start + window_size
+            ref = audio[ref_start : ref_end]
+            sample = audio[sample_start : sample_end]
+            similarity = calculate_similarity(ref, sample)
+            if (similarity > similarity_threshold):
+                print(f"Found similarity at {ref_start} - {ref_end} with {sample_start} - {sample_end}")
+
+
+    print(f"Found {sum(scores>0.99)} scores > 0.99")
+
+    # Extend the window duration until the widest match is found - binary style
+    # Issue: As the window duration increases, the average correlation increases
+    #        Makes sense, as the whole song is similar to itself. Should I
+    #        instead look for number of sequential matching short windows?
+
+
     best_idx = np.argmax(scores)
-    best_time = lags[best_idx]
+    best_time = lags[best_idx] / sr
     best_score = scores[best_idx]
     print(f"Best loop point at: {best_time:.2f} seconds (similarity = {best_score:.4f})")
-
-    # Plot the correlation scores
-    plt.figure(figsize=(10, 4))
-    plt.plot(lags, scores)
-    plt.title("Cross-Correlation vs Time Offset")
-    plt.xlabel("Time Offset (seconds)")
-    plt.ylabel("Similarity Score")
-    plt.grid(True)
-    plt.show()
-
+    plot_similarity_scores(lags, scores)
 
 if __name__ == "__main__":
     main()
