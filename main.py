@@ -239,16 +239,17 @@ def main():
     similarity_threshold = 0.99
 
     # Find points where similarity is high
+    lags, scores = frequency_cross_correlation(audio, sr, offset=offset, window_duration = window_duration, hop_size=10000)
+    matching_sample = [0] * len(audio)
     for idx, score in enumerate(scores):
         if score > similarity_threshold:
             consecutive_matches = find_consecutive_matching_samples(audio, offset_size, lags[idx], window_size, similarity_threshold)
             print(f"For reference at {offset} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr}")
+            matching_sample[lags[idx]:lags[idx] + consecutive_matches * window_size] = [offset_size] * consecutive_matches * window_size
+            print(f"size: {len(matching_sample)} of {len(audio)}")
 
-    best_idx = np.argmax(scores)
-    best_time = lags[best_idx] / sr
-    best_score = scores[best_idx]
-    print(f"Best loop point at: {best_time:.2f} seconds (similarity = {best_score:.4f})")
-    plot_similarity_scores(lags / sr, scores)
+    plot_song_with_matches(audio, filename, sr, matching_sample)
+    #plot_song(audio, filename, sr)
 
 if __name__ == "__main__":
     main()
