@@ -48,6 +48,35 @@ def plot_song(audio, filename, sr):
     plt.tight_layout()
     plt.show()
 
+
+def plot_song_with_matches(audio, filename, sr, matching_samples, step=1):
+    # Downsample for faster plotting
+    audio_ds = audio[::step]
+    matching_ds = matching_samples[::step]
+    time_ds = librosa.times_like(audio_ds, sr=sr, hop_length=step)
+
+    # Find unique region IDs and assign colours
+    unique_ids = np.unique(matching_ds)
+    cmap = plt.get_cmap("tab20", len(unique_ids))
+    color_map = {uid: cmap(i) for i, uid in enumerate(unique_ids)}
+
+    plt.figure(figsize=(12, 4))
+
+    # Draw contiguous segments in the same colour
+    start = 0
+    for i in range(1, len(audio_ds)):
+        if matching_ds[i] != matching_ds[start] or i == len(audio_ds):
+            plt.plot(time_ds[start:i], audio_ds[start:i],
+                     color=color_map[matching_ds[start]], linewidth=0.8)
+            start = i
+
+    plt.title(f"Waveform with Match Regions: {filename}")
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Amplitude")
+    plt.xlim(0, max(time_ds))
+    plt.tight_layout()
+    plt.show()
+
 def compare_sections(audio1, audio2, filename, sr):
     # Create time axis for plotting
     time_axis = librosa.times_like(audio1, sr=sr)
@@ -229,13 +258,11 @@ def main():
     filename = sys.argv[1]
     audio, sr = load_audio(filename)
 
-    # Calculate similarity
+    # Analysis settings
     window_duration = 0.5
     window_size = int(window_duration * sr)
     offset = 10.0
     offset_size = int(offset * sr)
-    lags, scores = frequency_cross_correlation(audio, sr, offset=offset, window_duration = window_duration, hop_size=10000)
-
     similarity_threshold = 0.99
 
     # Find points where similarity is high
@@ -248,8 +275,7 @@ def main():
             matching_sample[lags[idx]:lags[idx] + consecutive_matches * window_size] = [offset_size] * consecutive_matches * window_size
             print(f"size: {len(matching_sample)} of {len(audio)}")
 
-    plot_song_with_matches(audio, filename, sr, matching_sample)
-    #plot_song(audio, filename, sr)
+    plot_song_with_matches(audio, filename, sr, matching_sample, 1_000)
 
 if __name__ == "__main__":
     main()
