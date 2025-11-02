@@ -261,19 +261,9 @@ def find_consecutive_matching_samples(audio, reference_start_sample, match_start
         
     return num_consecutive_matches, suitable_loop_cut, reference_end_sample, match_end_sample
 
-def main():
-    # Load file
-    if len(sys.argv) != 2:
-        print("Please provide a .mp3 file as the first argument")
-        return
-    filename = sys.argv[1]
-    audio, sr = load_audio(filename)
-
-    # Analysis settings
-    window_duration = int(0.5 * sr)
-    current_offset = int(0.0 * sr)
-    similarity_threshold = 0.99
+def find_first_loop_point(audio, sr, window_duration, similarity_threshold):
     found_suitable_loop = False
+    current_offset = int(0.0 * sr)
 
     # Find points where similarity is high
     while (found_suitable_loop == False and current_offset < len(audio)):
@@ -284,13 +274,32 @@ def main():
             if score > similarity_threshold:
                 consecutive_matches, found_suitable_loop, reference_end_sample, match_end_sample = find_consecutive_matching_samples(audio, current_offset, lags[idx], window_duration, similarity_threshold)
                 print(f"For reference at {current_offset / sr:.2f} to {reference_end_sample / sr:.2f} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr:.2f} to {reference_end_sample / sr}, suitable loop? {found_suitable_loop}")
-                matching_sample[lags[idx]:lags[idx] + consecutive_matches * window_duration] = [idx] * consecutive_matches * window_duration
-                matching_sample[current_offset:current_offset + consecutive_matches * window_duration] = [-current_offset] * consecutive_matches * window_duration
             if found_suitable_loop:
+                matching_sample[current_offset:current_offset + consecutive_matches * window_duration] = [-current_offset] * consecutive_matches * window_duration
+                matching_sample[lags[idx]:lags[idx] + consecutive_matches * window_duration] = [idx] * consecutive_matches * window_duration
                 break
         current_offset += window_duration
 
-    plot_song_with_matches(audio, filename, sr, matching_sample, 1_000)
+    return found_suitable_loop, matching_sample
+
+def main():
+    # Load file
+    if len(sys.argv) != 2:
+        print("Please provide a .mp3 file as the first argument")
+        return
+    filename = sys.argv[1]
+    audio, sr = load_audio(filename)
+
+    # Analysis settings
+    window_duration = int(0.5 * sr)
+    similarity_threshold = 0.99
+
+    found_suitable_loop, matching_sample = find_first_loop_point(audio, sr, window_duration, similarity_threshold)
+
+    if (found_suitable_loop):
+        plot_song_with_matches(audio, filename, sr, matching_sample, 1_000)
+    else:
+        print("No suitable loop found")
 
 if __name__ == "__main__":
     main()
