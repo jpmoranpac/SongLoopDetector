@@ -1,9 +1,9 @@
 # Steps:
 # [x] Use FFT to find best matching loop for a given section
-# [ ] Slide the window out to find the longest period of matching samples (with
+# [x] Slide the window out to find the longest period of matching samples (with
 #     a criteria of 0.98 match?)
-# [ ] Repeat this for all sections of x seconds in the song
-# [ ] Plot the sections of songs that appear to be repeats
+# [x] Repeat this for all sections of x seconds in the song
+# [x] Plot the sections of songs that appear to be repeats
 # [ ] Export a new .mp3 file that stitches the matching sections together
 # [ ] Interactive GUI for the user to confirm repeats (e.g. click on a proposed
 #     repeat and let the user hear the proposed stitch for seamlessness)
@@ -12,6 +12,7 @@
 # [x] As the window duration increases, the average correlation increases
 #     Makes sense, as the whole song is similar to itself. Should I
 #     instead look for number of sequential matching short windows?
+# [ ] How to handle songs with multiple valid loop points?
 
 import sys
 import librosa
