@@ -205,7 +205,7 @@ def frequency_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop
     ref = audio[offset_samples:offset_samples+window_size]  # reference window
     
     ref_mag = np.abs(librosa.stft(ref, n_fft=2048, hop_length=512)).mean(axis=1)
-    ref_mag /= np.linalg.norm(ref_mag)
+    ref_mag /= np.linalg.norm(ref_mag + 1e-8)
     
     scores = []
     lags = []
