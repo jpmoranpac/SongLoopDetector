@@ -65,7 +65,7 @@ def plot_song_with_matches(audio, filename, sr, matching_samples, step=1):
     # Draw contiguous segments in the same colour
     start = 0
     for i in range(1, len(audio_ds)):
-        if matching_ds[i] != matching_ds[start] or i == len(audio_ds):
+        if matching_ds[i] != matching_ds[start] or i == len(audio_ds) - 1:
             plt.plot(time_ds[start:i], audio_ds[start:i],
                      color=color_map[matching_ds[start]], linewidth=0.8)
             start = i
@@ -199,9 +199,9 @@ def calculate_similarity(ref, segment):
 
     return score
 
-def frequency_cross_correlation(audio, sr, offset=15.0, window_duration=2.0, hop_size=1):
-    window_size = int(window_duration * sr)
-    offset_samples = int(offset * sr)
+def frequency_cross_correlation(audio, sr, offset, window_duration, hop_size=1):
+    window_size = window_duration
+    offset_samples = offset
     ref = audio[offset_samples:offset_samples+window_size]  # reference window
     
     ref_mag = np.abs(librosa.stft(ref, n_fft=2048, hop_length=512)).mean(axis=1)
@@ -234,21 +234,32 @@ def plot_similarity_scores(lags, scores):
     plt.grid(True)
     plt.show()
 
-def find_consecutive_matching_samples(audio, reference_start_sample, match_start_sample, window_size, similarity_threshold):
+def find_consecutive_matching_samples(audio, reference_start_sample, match_start_sample, window_size, similarity_threshold, allowable_misses = 0):
     similarity = 1.0
-    consecutive_matches = 0
-    while similarity > similarity_threshold:
+    num_consecutive_matches = 0
+    misses = 0
+    while misses <= allowable_misses:
         # Check if the next window is also of high similarity
-        consecutive_matches += 1
-        ref_start = reference_start_sample + window_size * consecutive_matches
+        num_consecutive_matches += 1
+        ref_start = reference_start_sample + window_size * num_consecutive_matches
         ref_end = ref_start + window_size
-        sample_start = match_start_sample + window_size * consecutive_matches
+        sample_start = match_start_sample + window_size * num_consecutive_matches
         sample_end = sample_start + window_size
         ref = audio[ref_start : ref_end]
         sample = audio[sample_start : sample_end]
         similarity = calculate_similarity(ref, sample)
+        if similarity < similarity_threshold:
+            misses += 1
+        else:
+            misses = 0
+
+    reference_end_sample = reference_start_sample + num_consecutive_matches * window_size
+    match_end_sample = match_start_sample + num_consecutive_matches * window_size
+    suitable_loop_cut = False
+    if (reference_end_sample >= match_start_sample):
+        suitable_loop_cut = True
         
-    return consecutive_matches
+    return num_consecutive_matches, suitable_loop_cut, reference_end_sample, match_end_sample
 
 def main():
     # Load file
@@ -259,21 +270,25 @@ def main():
     audio, sr = load_audio(filename)
 
     # Analysis settings
-    window_duration = 0.5
-    window_size = int(window_duration * sr)
-    offset = 10.0
-    offset_size = int(offset * sr)
+    window_duration = int(0.5 * sr)
+    current_offset = int(0.0 * sr)
     similarity_threshold = 0.99
+    found_suitable_loop = False
 
     # Find points where similarity is high
-    lags, scores = frequency_cross_correlation(audio, sr, offset=offset, window_duration = window_duration, hop_size=10000)
-    matching_sample = [0] * len(audio)
-    for idx, score in enumerate(scores):
-        if score > similarity_threshold:
-            consecutive_matches = find_consecutive_matching_samples(audio, offset_size, lags[idx], window_size, similarity_threshold)
-            print(f"For reference at {offset} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr}")
-            matching_sample[lags[idx]:lags[idx] + consecutive_matches * window_size] = [offset_size] * consecutive_matches * window_size
-            print(f"size: {len(matching_sample)} of {len(audio)}")
+    while (found_suitable_loop == False and current_offset < len(audio)):
+        print(f"Checking {current_offset / sr}")
+        lags, scores = frequency_cross_correlation(audio, sr, offset=current_offset, window_duration = window_duration, hop_size=10000)
+        matching_sample = [0] * len(audio)
+        for idx, score in enumerate(scores):
+            if score > similarity_threshold:
+                consecutive_matches, found_suitable_loop, reference_end_sample, match_end_sample = find_consecutive_matching_samples(audio, current_offset, lags[idx], window_duration, similarity_threshold)
+                print(f"For reference at {current_offset / sr:.2f} to {reference_end_sample / sr:.2f} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr:.2f} to {reference_end_sample / sr}, suitable loop? {found_suitable_loop}")
+                matching_sample[lags[idx]:lags[idx] + consecutive_matches * window_duration] = [idx] * consecutive_matches * window_duration
+                matching_sample[current_offset:current_offset + consecutive_matches * window_duration] = [-current_offset] * consecutive_matches * window_duration
+            if found_suitable_loop:
+                break
+        current_offset += window_duration
 
     plot_song_with_matches(audio, filename, sr, matching_sample, 1_000)
 
