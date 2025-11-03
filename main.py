@@ -18,6 +18,8 @@ import sys
 import librosa
 import matplotlib.pyplot as plt
 import numpy as np
+import soundfile as sf
+from pathlib import Path
 
 def plot_song(audio, filename, sr):
     # Create time axis for plotting
@@ -48,7 +50,6 @@ def plot_song(audio, filename, sr):
 
     plt.tight_layout()
     plt.show()
-
 
 def plot_song_with_matches(audio, filename, sr, matching_samples, step=1):
     # Downsample for faster plotting
@@ -264,7 +265,7 @@ def find_consecutive_matching_samples(audio, reference_start_sample, match_start
 
 def find_first_loop_point(audio, sr, window_duration, similarity_threshold):
     found_suitable_loop = False
-    current_offset = int(0.0 * sr)
+    current_offset = int(10.0 * sr)
 
     # Find points where similarity is high
     while (found_suitable_loop == False and current_offset < len(audio)):
@@ -274,14 +275,15 @@ def find_first_loop_point(audio, sr, window_duration, similarity_threshold):
         for idx, score in enumerate(scores):
             if score > similarity_threshold:
                 consecutive_matches, found_suitable_loop, reference_end_sample, match_end_sample = find_consecutive_matching_samples(audio, current_offset, lags[idx], window_duration, similarity_threshold)
-                print(f"For reference at {current_offset / sr:.2f} to {reference_end_sample / sr:.2f} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr:.2f} to {reference_end_sample / sr}, suitable loop? {found_suitable_loop}")
+                print(f"For reference at {current_offset / sr:.2f} to {reference_end_sample / sr:.2f} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr:.2f} to {match_end_sample / sr:.2f}, suitable loop? {found_suitable_loop}")
             if found_suitable_loop:
-                matching_sample[current_offset:current_offset + consecutive_matches * window_duration] = [-current_offset] * consecutive_matches * window_duration
-                matching_sample[lags[idx]:lags[idx] + consecutive_matches * window_duration] = [idx] * consecutive_matches * window_duration
+
+                matching_sample[current_offset:reference_end_sample] = [-current_offset] * consecutive_matches * window_duration
+                matching_sample[lags[idx]:match_end_sample] = [idx] * consecutive_matches * window_duration
                 break
         current_offset += window_duration
 
-    return found_suitable_loop, matching_sample
+    return found_suitable_loop, matching_sample, current_offset, reference_end_sample, lags[idx], match_end_sample
 
 def main():
     # Load file
@@ -295,12 +297,24 @@ def main():
     window_duration = int(0.5 * sr)
     similarity_threshold = 0.99
 
-    found_suitable_loop, matching_sample = find_first_loop_point(audio, sr, window_duration, similarity_threshold)
+    found_suitable_loop, matching_sample, reference_start, reference_end, match_start, match_end = find_first_loop_point(audio, sr, window_duration, similarity_threshold)
 
     if (found_suitable_loop):
         plot_song_with_matches(audio, filename, sr, matching_sample, 1_000)
     else:
         print("No suitable loop found")
+
+    # Find the exact loop point
+
+    # Remove the identified loop from the song
+    audio_loop_removed = np.concatenate([audio[:reference_start], audio[match_start:]])
+
+    print(f"Stitched length: {len(audio_loop_removed)/sr:.2f}s")
+
+    # Write out as .wav
+    output_path = "loop_removed_" + Path(filename).stem + ".wav"
+    sf.write(output_path, audio_loop_removed, sr, subtype="PCM_16")
+    print(f"Exported stitched audio: {output_path}")
 
 if __name__ == "__main__":
     main()
