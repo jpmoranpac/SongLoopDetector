@@ -201,10 +201,8 @@ def calculate_similarity(ref, segment):
 
     return score
 
-def frequency_cross_correlation(audio, sr, offset, window_duration, hop_size=1):
-    window_size = window_duration
-    offset_samples = offset
-    ref = audio[offset_samples:offset_samples+window_size]  # reference window
+def frequency_cross_correlation(audio, reference_sample, search_offset_sample, window_size, hop_size=1):
+    ref = audio[reference_sample:reference_sample+window_size]  # reference window
     
     ref_mag = np.abs(librosa.stft(ref, n_fft=2048, hop_length=512)).mean(axis=1)
     ref_mag /= np.linalg.norm(ref_mag + 1e-8)
@@ -212,7 +210,7 @@ def frequency_cross_correlation(audio, sr, offset, window_duration, hop_size=1):
     scores = []
     lags = []
 
-    for lag in range(offset_samples+window_size, len(audio) - window_size, hop_size):
+    for lag in range(search_offset_sample, len(audio) - window_size, hop_size):
         segment = audio[lag:lag + window_size]
         seg_mag = np.abs(librosa.stft(segment, n_fft=2048, hop_length=512)).mean(axis=1)
         seg_mag /= np.linalg.norm(seg_mag) + 1e-8
@@ -220,9 +218,6 @@ def frequency_cross_correlation(audio, sr, offset, window_duration, hop_size=1):
         score = np.dot(ref_mag, seg_mag)
         scores.append(score)
         lags.append(lag)
-
-        if lag % 10000 == 0:
-            print(f"{(lag)/len(audio)*100:.2f}%")
             
     return np.array(lags), np.array(scores)
 
@@ -265,12 +260,12 @@ def find_consecutive_matching_samples(audio, reference_start_sample, match_start
 
 def find_first_loop_point(audio, sr, window_duration, similarity_threshold):
     found_suitable_loop = False
-    current_offset = int(10.0 * sr)
+    current_offset = int(0.0 * sr)
 
     # Find points where similarity is high
     while (found_suitable_loop == False and current_offset < len(audio)):
         print(f"Checking {current_offset / sr}")
-        lags, scores = frequency_cross_correlation(audio, sr, offset=current_offset, window_duration = window_duration, hop_size=10000)
+        lags, scores = frequency_cross_correlation(audio, current_offset, current_offset + window_duration, window_duration, hop_size=10000)
         matching_sample = [0] * len(audio)
         for idx, score in enumerate(scores):
             if score > similarity_threshold:
@@ -305,6 +300,10 @@ def main():
         print("No suitable loop found")
 
     # Find the exact loop point
+    # print("Finding exact loop point...")
+    # lags, scores = frequency_cross_correlation(audio[:match_start+window_duration], reference_start, match_start - window_duration, window_duration, hop_size=10)
+    # best_loop = lags[np.argmax(scores)]
+    # print(f"Moved loop from {match_start} to {best_loop}")
 
     # Remove the identified loop from the song
     audio_loop_removed = np.concatenate([audio[:reference_start], audio[match_start:]])
