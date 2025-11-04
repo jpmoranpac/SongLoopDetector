@@ -265,12 +265,12 @@ def find_first_loop_point(audio, sr, window_duration, similarity_threshold):
     # Find points where similarity is high
     while (found_suitable_loop == False and current_offset < len(audio)):
         print(f"Checking {current_offset / sr}")
-        lags, scores = frequency_cross_correlation(audio, current_offset, current_offset + window_duration, window_duration, hop_size=10000)
+        lags, scores = frequency_cross_correlation(audio, current_offset, current_offset + window_duration + int(len(audio) * 0.2), window_duration, hop_size=10000)
         matching_sample = [0] * len(audio)
         for idx, score in enumerate(scores):
             if score > similarity_threshold:
                 consecutive_matches, found_suitable_loop, reference_end_sample, match_end_sample = find_consecutive_matching_samples(audio, current_offset, lags[idx], window_duration, similarity_threshold)
-                print(f"For reference at {current_offset:.2f} to {reference_end_sample:.2f} Found {consecutive_matches} consecutive matches, starting at {lags[idx]:.2f} to {match_end_sample:.2f}, suitable loop? {found_suitable_loop}")
+                print(f"For reference at {current_offset / sr:.2f} to {reference_end_sample / sr:.2f} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr:.2f} to {match_end_sample / sr:.2f}, suitable loop? {found_suitable_loop}")
             if found_suitable_loop:
                 matching_sample[current_offset:reference_end_sample] = [-current_offset] * consecutive_matches * window_duration
                 matching_sample[lags[idx]:match_end_sample] = [idx] * consecutive_matches * window_duration
@@ -290,7 +290,7 @@ def main():
 
     # Analysis settings
     window_duration = int(0.5 * sr)
-    similarity_threshold = 0.99
+    similarity_threshold = 0.95
 
     found_suitable_loop, matching_sample, reference_start, reference_end, match_start, match_end = find_first_loop_point(audio, sr, window_duration, similarity_threshold)
 
