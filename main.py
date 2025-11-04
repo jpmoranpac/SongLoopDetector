@@ -4,7 +4,8 @@
 #     a criteria of 0.98 match?)
 # [x] Repeat this for all sections of x seconds in the song
 # [x] Plot the sections of songs that appear to be repeats
-# [ ] Export a new .mp3 file that stitches the matching sections together
+# [x] Export a new .mp3 file that stitches the matching sections together
+# [ ] Speed up analysis
 # [ ] Interactive GUI for the user to confirm repeats (e.g. click on a proposed
 #     repeat and let the user hear the proposed stitch for seamlessness)
 
@@ -301,9 +302,9 @@ def main():
 
     # Find the exact loop point
     print("Finding exact loop point...")
-    # lags, scores = frequency_cross_correlation(audio[:match_start+window_duration * 2], reference_start, match_start, window_duration, hop_size=10)
-    # best_loop = lags[np.argmax(scores)]
-    # print(f"Moved loop from {match_start} to {best_loop}")
+    lags, scores = frequency_cross_correlation(audio[:match_start+window_duration * 2], reference_start, match_start - window_duration, window_duration, hop_size=10)
+    best_loop = lags[np.argmax(scores)]
+    print(f"Moved loop from {match_start} to {best_loop}")
     best_loop = match_start
 
     # Remove the identified loop from the song
