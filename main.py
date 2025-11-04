@@ -282,6 +282,8 @@ def find_first_loop_point(audio, sr, window_duration, similarity_threshold):
     return found_suitable_loop, matching_sample, current_offset, reference_end_sample, lags[idx], match_end_sample
 
 def main():
+    show_plot = False
+
     # Load file
     if len(sys.argv) != 2:
         print("Please provide a .mp3 file as the first argument")
@@ -296,7 +298,9 @@ def main():
     found_suitable_loop, matching_sample, reference_start, reference_end, match_start, match_end = find_first_loop_point(audio, sr, window_duration, similarity_threshold)
 
     if (found_suitable_loop):
-        plot_song_with_matches(audio, filename, sr, matching_sample, 1_000)
+        print("Loop found!")
+        if (show_plot):
+            plot_song_with_matches(audio, filename, sr, matching_sample, 1_000)
     else:
         print("No suitable loop found")
 
