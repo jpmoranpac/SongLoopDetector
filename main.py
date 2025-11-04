@@ -270,13 +270,13 @@ def find_first_loop_point(audio, sr, window_duration, similarity_threshold):
         for idx, score in enumerate(scores):
             if score > similarity_threshold:
                 consecutive_matches, found_suitable_loop, reference_end_sample, match_end_sample = find_consecutive_matching_samples(audio, current_offset, lags[idx], window_duration, similarity_threshold)
-                print(f"For reference at {current_offset / sr:.2f} to {reference_end_sample / sr:.2f} Found {consecutive_matches} consecutive matches, starting at {lags[idx] / sr:.2f} to {match_end_sample / sr:.2f}, suitable loop? {found_suitable_loop}")
+                print(f"For reference at {current_offset:.2f} to {reference_end_sample:.2f} Found {consecutive_matches} consecutive matches, starting at {lags[idx]:.2f} to {match_end_sample:.2f}, suitable loop? {found_suitable_loop}")
             if found_suitable_loop:
-
                 matching_sample[current_offset:reference_end_sample] = [-current_offset] * consecutive_matches * window_duration
                 matching_sample[lags[idx]:match_end_sample] = [idx] * consecutive_matches * window_duration
                 break
-        current_offset += window_duration
+        if not found_suitable_loop:
+            current_offset += window_duration
 
     return found_suitable_loop, matching_sample, current_offset, reference_end_sample, lags[idx], match_end_sample
 
@@ -300,13 +300,15 @@ def main():
         print("No suitable loop found")
 
     # Find the exact loop point
-    # print("Finding exact loop point...")
-    # lags, scores = frequency_cross_correlation(audio[:match_start+window_duration], reference_start, match_start - window_duration, window_duration, hop_size=10)
+    print("Finding exact loop point...")
+    # lags, scores = frequency_cross_correlation(audio[:match_start+window_duration * 2], reference_start, match_start, window_duration, hop_size=10)
     # best_loop = lags[np.argmax(scores)]
     # print(f"Moved loop from {match_start} to {best_loop}")
+    best_loop = match_start
 
     # Remove the identified loop from the song
-    audio_loop_removed = np.concatenate([audio[:reference_start], audio[match_start:]])
+    print(f"Stiching {reference_start} to {best_loop}")
+    audio_loop_removed = np.concatenate([audio[:reference_start], audio[best_loop:]])
 
     print(f"Stitched length: {len(audio_loop_removed)/sr:.2f}s")
 
